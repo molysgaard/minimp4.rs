@@ -5534,7 +5534,7 @@ unsafe extern "C" fn mp4_h265_write_nal(
     mut h: *mut mp4_h26x_writer_t,
     mut nal: *const c_uchar,
     mut sizeof_nal: c_int,
-    mut timeStamp90kHz_next: c_uint,
+    mut duration_90kHz: c_uint,
 ) -> c_int {
     let mut payload_type: c_int = *nal.offset(0 as c_int as isize) as c_int >> 1 as c_int & 0x3f as c_int;
     let mut is_intra: c_int = (payload_type >= 16 as c_int && payload_type <= 21 as c_int) as c_int;
@@ -5581,7 +5581,7 @@ unsafe extern "C" fn mp4_h265_write_nal(
                 (*h).mux_track_id,
                 tmp as *const c_void,
                 4 as c_int + sizeof_nal,
-                timeStamp90kHz_next as c_int,
+                duration_90kHz as c_int,
                 sample_kind,
             );
             minimp4_free(tmp as *mut c_void);
@@ -5594,7 +5594,7 @@ pub unsafe extern "C" fn mp4_h26x_write_nal(
     mut h: *mut mp4_h26x_writer_t,
     mut nal: *const c_uchar,
     mut length: c_int,
-    mut timeStamp90kHz_next: c_uint,
+    mut duration_90kHz: c_uint,
 ) -> c_int {
     let mut current_block: u64;
     let mut eof: *const c_uchar = nal.offset(length as isize);
@@ -5609,7 +5609,7 @@ pub unsafe extern "C" fn mp4_h26x_write_nal(
             break;
         }
         if (*h).is_hevc != 0 {
-            let mut err_0: c_int = mp4_h265_write_nal(h, nal, sizeof_nal, timeStamp90kHz_next);
+            let mut err_0: c_int = mp4_h265_write_nal(h, nal, sizeof_nal, duration_90kHz);
             if err_0 != 0 {
                 return err_0;
             }
@@ -5709,7 +5709,7 @@ pub unsafe extern "C" fn mp4_h26x_write_nal(
                                                 (*h).mux_track_id,
                                                 nal2 as *const c_void,
                                                 sizeof_nal,
-                                                timeStamp90kHz_next as c_int,
+                                                duration_90kHz as c_int,
                                                 sample_kind,
                                             );
                                         }
