@@ -41,6 +41,25 @@ pub fn write_mp4(mp4wr: &mut mp4_h26x_writer_t, fps: i32, data: &[u8]) {
     }
 }
 
+pub fn write_mp4_frame_with_duration(mp4wr: &mut mp4_h26x_writer_t, duration_90KHz: u32, data: &[u8]) {
+    let mut data_size = data.len();
+    let mut data_ptr = data.as_ptr();
+
+    while data_size > 0 {
+        let buf = unsafe { std::slice::from_raw_parts_mut(data_ptr as *mut u8, data_size) };
+        let nal_size = get_nal_size(buf, data_size);
+        if nal_size < 4 {
+            data_ptr = unsafe { data_ptr.add(1) };
+            data_size -= 1;
+            continue;
+        }
+        unsafe { mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, duration_90KHz) };
+        data_ptr = unsafe { data_ptr.add(nal_size) };
+        data_size -= nal_size;
+        assert_eq!(data_size, 0, "Only a single NAL unit is supported");
+    }
+}
+
 #[cfg(feature = "aac")]
 pub fn write_mp4_with_audio(
     mp4wr: &mut mp4_h26x_writer_t,

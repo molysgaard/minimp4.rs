@@ -16,9 +16,9 @@ use std::{
 use enc::{BitRate, EncoderParams};
 use libc::malloc;
 use minimp4_sys::{mp4_h26x_write_init, mp4_h26x_writer_t, MP4E_close, MP4E_mux_t, MP4E_open, MP4E_set_text_comment};
-use writer::write_mp4;
 #[cfg(feature = "aac")]
 use writer::write_mp4_with_audio;
+use writer::{write_mp4, write_mp4_frame_with_duration};
 
 pub struct Mp4Muxer<W> {
     writer: W,
@@ -86,6 +86,11 @@ impl<W: Write + Seek> Mp4Muxer<W> {
         let mp4wr = unsafe { self.muxer_writer.as_mut().unwrap() };
         let fps = fps.try_into().unwrap();
         write_mp4(mp4wr, fps, data);
+    }
+
+    pub fn write_frame_with_duration(&self, data: &[u8], duration_90KHz: u32) {
+        let mp4wr = unsafe { self.muxer_writer.as_mut().unwrap() };
+        write_mp4_frame_with_duration(mp4wr, duration_90KHz, data);
     }
 
     pub fn write_comment(&mut self, comment: &str) {
