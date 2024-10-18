@@ -27,14 +27,27 @@ pub fn write_mp4(mp4wr: &mut mp4_h26x_writer_t, fps: i32, data: &[u8]) {
     let mut data_size = data.len();
     let mut data_ptr = data.as_ptr();
 
+    let mut cnt = 0;
+    let mut failed = 0;
+
     while data_size > 0 {
         let buf = unsafe { std::slice::from_raw_parts_mut(data_ptr as *mut u8, data_size) };
         let nal_size = get_nal_size(buf, data_size);
         if nal_size < 4 {
             data_ptr = unsafe { data_ptr.add(1) };
             data_size -= 1;
+            failed += 1;
+            println!(
+                "Skipping NAL unit of size {} ({} total, {} failed)",
+                nal_size, cnt, failed
+            );
             continue;
         }
+        println!(
+            "Writing NAL unit of size {} ({} total, {} failed)",
+            nal_size, cnt, failed
+        );
+        cnt += 1;
         unsafe { mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, (90000 / fps) as u32) };
         data_ptr = unsafe { data_ptr.add(nal_size) };
         data_size -= nal_size;
