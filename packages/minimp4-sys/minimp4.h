@@ -2339,7 +2339,10 @@ int mp4_h26x_write_nal(mp4_h26x_writer_t *h, const unsigned char *nal, int lengt
 #endif
         nal = find_nal_unit(nal, (int)(eof - nal), &sizeof_nal);
         if (!sizeof_nal)
+        {
+            printf("mp4_h26x_write_nal: sizeof_nal is 0\n");
             break;
+        }
         if (h->is_hevc)
         {
             ERR(mp4_h265_write_nal(h, nal, sizeof_nal, timeStamp90kHz_next));
@@ -2347,7 +2350,10 @@ int mp4_h26x_write_nal(mp4_h26x_writer_t *h, const unsigned char *nal, int lengt
         }
         payload_type = nal[0] & 31;
         if (9 == payload_type)
+        {
+            printf("mp4_h26x_write_nal: access unit delimiter, nothing to be done\n");
             continue;  // access unit delimiter, nothing to be done
+        }
 #if MINIMP4_TRANSCODE_SPS_ID
         // Transcode SPS, PPS and slice headers, reassigning ID's for SPS and  PPS:
         // - assign unique ID's to different SPS and PPS
@@ -2355,16 +2361,21 @@ int mp4_h26x_write_nal(mp4_h26x_writer_t *h, const unsigned char *nal, int lengt
         // - save all different SPS and PPS
         nal1 = (unsigned char *)malloc(sizeof_nal*17/16 + 32);
         if (!nal1)
+        {
+            printf("mp4_h26x_write_nal: nal1 is null, MP4E_STATUS_NO_MEMORY\n");
             return MP4E_STATUS_NO_MEMORY;
+        }
         nal2 = (unsigned char *)malloc(sizeof_nal*17/16 + 32);
         if (!nal2)
         {
+            printf("mp4_h26x_write_nal: nal2 is null, MP4E_STATUS_NO_MEMORY\n");
             free(nal1);
             return MP4E_STATUS_NO_MEMORY;
         }
         sizeof_nal = remove_nal_escapes(nal2, nal, sizeof_nal);
         if (!sizeof_nal)
         {
+            printf("mp4_h26x_write_nal: sizeof_nal is 0, MP4E_STATUS_BAD_ARGUMENTS\n");
 exit_with_free:
             free(nal1);
             free(nal2);
@@ -2376,23 +2387,34 @@ exit_with_free:
 
         switch (payload_type) {
         case 7:
+            printf("mp4_h26x_write_nal: set sps\n");
             MP4E_set_sps(h->mux, h->mux_track_id, nal2 + 4, sizeof_nal - 4);
             h->need_sps = 0;
             break;
         case 8:
+            printf("mp4_h26x_write_nal: set pps\n");
             if (h->need_sps)
+            {
+                printf("mp4_h26x_write_nal: need sps0\n");
                 goto exit_with_free;
+            }
             MP4E_set_pps(h->mux, h->mux_track_id, nal2 + 4, sizeof_nal - 4);
             h->need_pps = 0;
             break;
         case 5:
             if (h->need_sps)
+            {
+                printf("mp4_h26x_write_nal: need sps1\n");
                 goto exit_with_free;
+            }
             h->need_idr = 0;
             // flow through
         default:
             if (h->need_sps)
+            {
+                printf("mp4_h26x_write_nal: need sps2\n");
                 goto exit_with_free;
+            }
             if (!h->need_pps && !h->need_idr)
             {
                 bit_reader_t bs[1];
@@ -2419,23 +2441,32 @@ exit_with_free:
         // This branch assumes that encoder use correct SPS/PPS ID's
         switch (payload_type) {
             case 7:
+                printf("mp4_h26x_write_nal: set sps\n");
                 MP4E_set_sps(h->mux, h->mux_track_id, nal, sizeof_nal);
                 h->need_sps = 0;
                 break;
             case 8:
+                printf("mp4_h26x_write_nal: set pps\n");
                 MP4E_set_pps(h->mux, h->mux_track_id, nal, sizeof_nal);
                 h->need_pps = 0;
                 break;
             case 5:
                 if (h->need_sps)
+                {
+                    printf("mp4_h26x_write_nal: need sps3\n");
                     return MP4E_STATUS_BAD_ARGUMENTS;
+                }
                 h->need_idr = 0;
                 // flow through
             default:
                 if (h->need_sps)
+                {
+                    printf("mp4_h26x_write_nal: need sps4\n");
                     return MP4E_STATUS_BAD_ARGUMENTS;
+                }
                 if (!h->need_pps && !h->need_idr)
                 {
+                    printf("mp4_h26x_write_nal: bit reader\n");
                     bit_reader_t bs[1];
                     unsigned char *tmp = (unsigned char *)malloc(4 + sizeof_nal);
                     if (!tmp)
@@ -2455,11 +2486,17 @@ exit_with_free:
                     err = MP4E_put_sample(h->mux, h->mux_track_id, tmp, 4 + sizeof_nal, timeStamp90kHz_next, sample_kind);
                     free(tmp);
                 }
+                else {
+                    printf("mp4_h26x_write_nal: need pps or idr0\n");
+                }
                 break;
         }
 #endif
         if (err)
+        {
+            printf("mp4_h26x_write_nal: err %d\n", err);
             break;
+        }
     }
     return err;
 }
