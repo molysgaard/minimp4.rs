@@ -2219,9 +2219,16 @@ static const uint8_t *find_nal_unit(const uint8_t *h264_data, int h264_data_byte
     if (start)
     {
         stop = find_start_code(start, (int)(eof - start), &zcount);
-        while (stop > start && !stop[-1])
-        {
-            stop--;
+        if (stop != eof) {
+            // We found a next nal unit, skip back to just before it starts
+            while (stop > start && !stop[-1])
+            {
+                stop--;
+            }
+        }
+        else {
+            // No NAL unit found after this one. We will have to assume that the EOF is the end of this NAL unit.
+            // Do nothing.
         }
     }
 
