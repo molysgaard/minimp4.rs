@@ -8,6 +8,8 @@ fn main() {
         .define("NDEBUG", Some("1"))
         .file("minimp4.c")
         .compile("minimp4");
+    println!("cargo:rerun-if-changed=minimp4.h");
+    println!("cargo:rerun-if-changed=minimp4.c");
     let bindings = bindgen::Builder::default()
         .header("minimp4.h")
         .generate()
