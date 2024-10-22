@@ -89,7 +89,6 @@ pub fn write_mp4_frame_with_duration(
 
         data_ptr = unsafe { data_ptr.add(nal_size) };
         data_size -= nal_size;
-        assert_eq!(data_size, 0, "Only a single NAL unit is supported");
     }
 
     Ok(())
