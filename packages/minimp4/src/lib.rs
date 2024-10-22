@@ -15,7 +15,10 @@ use std::{
 #[cfg(feature = "aac")]
 use enc::{BitRate, EncoderParams};
 use libc::malloc;
-use minimp4_sys::{mp4_h26x_write_init, mp4_h26x_writer_t, MP4E_close, MP4E_mux_t, MP4E_open, MP4E_set_text_comment};
+use minimp4_sys::{
+    mp4_h26x_write_init, mp4_h26x_writer_t, MP4E_close, MP4E_mux_t, MP4E_open, MP4E_set_text_comment,
+    MP4E_STATUS_BAD_ARGUMENTS,
+};
 #[cfg(feature = "aac")]
 use writer::write_mp4_with_audio;
 use writer::{write_mp4, write_mp4_frame_with_duration};
@@ -27,6 +30,57 @@ pub struct Mp4Muxer<W> {
     str_buffer: Vec<CString>,
     #[cfg(feature = "aac")]
     encoder_params: Option<EncoderParams>,
+}
+
+#[derive(Debug)]
+#[repr(i32)]
+pub enum Minimp4ReturnCode {
+    Ok = minimp4_sys::MP4E_STATUS_OK as i32,
+    Err(Minimp4Error),
+}
+
+impl TryFrom<i32> for Minimp4ReturnCode {
+    type Error = ();
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        Ok(if value == minimp4_sys::MP4E_STATUS_OK as i32 {
+            Self::Ok
+        } else {
+            Self::Err(Minimp4Error::try_from(value)?)
+        })
+    }
+}
+
+#[derive(Debug)]
+#[repr(i32)]
+pub enum Minimp4Error {
+    BadArguments = minimp4_sys::MP4E_STATUS_BAD_ARGUMENTS,
+    NoMemory = minimp4_sys::MP4E_STATUS_NO_MEMORY,
+    FileWriteError = minimp4_sys::MP4E_STATUS_FILE_WRITE_ERROR,
+    OnlyOneDsiAllowed = minimp4_sys::MP4E_STATUS_ONLY_ONE_DSI_ALLOWED,
+}
+
+impl TryFrom<i32> for Minimp4Error {
+    type Error = ();
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            minimp4_sys::MP4E_STATUS_BAD_ARGUMENTS => Ok(Self::BadArguments),
+            minimp4_sys::MP4E_STATUS_NO_MEMORY => Ok(Self::NoMemory),
+            minimp4_sys::MP4E_STATUS_FILE_WRITE_ERROR => Ok(Self::FileWriteError),
+            minimp4_sys::MP4E_STATUS_ONLY_ONE_DSI_ALLOWED => Ok(Self::OnlyOneDsiAllowed),
+            _ => Err(()),
+        }
+    }
+}
+
+pub type Minimp4Result<T> = Result<T, Minimp4Error>;
+
+impl From<Minimp4ReturnCode> for Minimp4Result<()> {
+    fn from(value: Minimp4ReturnCode) -> Self {
+        match value {
+            Minimp4ReturnCode::Err(e) => Err(e),
+            Minimp4ReturnCode::Ok => Ok(()),
+        }
+    }
 }
 
 impl<W: Write + Seek> Mp4Muxer<W> {
@@ -69,8 +123,8 @@ impl<W: Write + Seek> Mp4Muxer<W> {
         });
     }
 
-    pub fn write_video(&self, data: &[u8]) {
-        self.write_video_with_fps(data, 60);
+    pub fn write_video(&self, data: &[u8]) -> Minimp4Result<()> {
+        self.write_video_with_fps(data, 60)
     }
 
     #[cfg(feature = "aac")]
@@ -82,15 +136,15 @@ impl<W: Write + Seek> Mp4Muxer<W> {
         write_mp4_with_audio(mp4wr, fps, data, pcm, encoder_params)
     }
 
-    pub fn write_video_with_fps(&self, data: &[u8], fps: u32) {
+    pub fn write_video_with_fps(&self, data: &[u8], fps: u32) -> Minimp4Result<()> {
         let mp4wr = unsafe { self.muxer_writer.as_mut().unwrap() };
         let fps = fps.try_into().unwrap();
-        write_mp4(mp4wr, fps, data);
+        write_mp4(mp4wr, fps, data)
     }
 
-    pub fn write_frame_with_duration(&self, data: &[u8], duration_90KHz: u32) {
+    pub fn write_frame_with_duration(&self, data: &[u8], duration_90KHz: u32) -> Minimp4Result<()> {
         let mp4wr = unsafe { self.muxer_writer.as_mut().unwrap() };
-        write_mp4_frame_with_duration(mp4wr, duration_90KHz, data);
+        write_mp4_frame_with_duration(mp4wr, duration_90KHz, data)
     }
 
     pub fn write_comment(&mut self, comment: &str) {

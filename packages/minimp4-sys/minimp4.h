@@ -2225,8 +2225,10 @@ static const uint8_t *find_nal_unit(const uint8_t *h264_data, int h264_data_byte
             {
                 stop--;
             }
+            printf("find_nal_unit: stop!=eof Found NAL unit after this one.\n");
         }
         else {
+            printf("find_nal_unit: stop==eof No NAL unit found after this one.\n");
             // No NAL unit found after this one. We will have to assume that the EOF is the end of this NAL unit.
             // Do nothing.
         }

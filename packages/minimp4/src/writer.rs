@@ -9,6 +9,8 @@ use minimp4_sys::{
     MP4_OBJECT_TYPE_AUDIO_ISO_IEC_14496_3,
 };
 
+use crate::{Minimp4Result, Minimp4ReturnCode};
+
 fn get_nal_size(buf: &mut [u8], size: usize) -> usize {
     let mut pos = 3;
     while size - pos > 3 {
@@ -23,7 +25,7 @@ fn get_nal_size(buf: &mut [u8], size: usize) -> usize {
     size
 }
 
-pub fn write_mp4(mp4wr: &mut mp4_h26x_writer_t, fps: i32, data: &[u8]) {
+pub fn write_mp4(mp4wr: &mut mp4_h26x_writer_t, fps: i32, data: &[u8]) -> Minimp4Result<()> {
     let mut data_size = data.len();
     let mut data_ptr = data.as_ptr();
 
@@ -48,13 +50,24 @@ pub fn write_mp4(mp4wr: &mut mp4_h26x_writer_t, fps: i32, data: &[u8]) {
             nal_size, cnt, failed
         );
         cnt += 1;
-        unsafe { mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, (90000 / fps) as u32) };
+        Minimp4Result::from(
+            Minimp4ReturnCode::try_from(unsafe {
+                mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, (90000 / fps) as u32)
+            })
+            .unwrap(),
+        )?;
         data_ptr = unsafe { data_ptr.add(nal_size) };
         data_size -= nal_size;
     }
+
+    Ok(())
 }
 
-pub fn write_mp4_frame_with_duration(mp4wr: &mut mp4_h26x_writer_t, duration_90KHz: u32, data: &[u8]) {
+pub fn write_mp4_frame_with_duration(
+    mp4wr: &mut mp4_h26x_writer_t,
+    duration_90KHz: u32,
+    data: &[u8],
+) -> Minimp4Result<()> {
     let mut data_size = data.len();
     let mut data_ptr = data.as_ptr();
 
@@ -66,11 +79,20 @@ pub fn write_mp4_frame_with_duration(mp4wr: &mut mp4_h26x_writer_t, duration_90K
             data_size -= 1;
             continue;
         }
-        unsafe { mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, duration_90KHz) };
+
+        Minimp4Result::from(
+            Minimp4ReturnCode::try_from(unsafe {
+                mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, duration_90KHz)
+            })
+            .unwrap(),
+        )?;
+
         data_ptr = unsafe { data_ptr.add(nal_size) };
         data_size -= nal_size;
         assert_eq!(data_size, 0, "Only a single NAL unit is supported");
     }
+
+    Ok(())
 }
 
 #[cfg(feature = "aac")]
