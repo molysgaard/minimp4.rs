@@ -119,6 +119,18 @@ typedef boxsize_t MP4D_file_offset_t;
 #define HEVC_NAL_BLA_W_LP 16
 #define HEVC_NAL_CRA_NUT  21
 
+// Custom printf wrapper that can be disabled easily
+#define MP4D_PRINT_INFO_SUPPORTED 0
+void mp4_printf(const char *fmt, ...)
+{
+#if MP4D_PRINT_INFO_SUPPORTED
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+#endif
+}
+
 /************************************************************************/
 /*          Data structures                                             */
 /************************************************************************/
@@ -2225,10 +2237,10 @@ static const uint8_t *find_nal_unit(const uint8_t *h264_data, int h264_data_byte
             {
                 stop--;
             }
-            printf("find_nal_unit: stop!=eof Found NAL unit after this one.\n");
+            mp4_printf("find_nal_unit: stop!=eof Found NAL unit after this one.\n");
         }
         else {
-            printf("find_nal_unit: stop==eof No NAL unit found after this one.\n");
+            mp4_printf("find_nal_unit: stop==eof No NAL unit found after this one.\n");
             // No NAL unit found after this one. We will have to assume that the EOF is the end of this NAL unit.
             // Do nothing.
         }
@@ -2342,7 +2354,7 @@ int mp4_h26x_write_nal(mp4_h26x_writer_t *h, const unsigned char *nal, int lengt
         nal = find_nal_unit(nal, (int)(eof - nal), &sizeof_nal);
         if (!sizeof_nal)
         {
-            printf("mp4_h26x_write_nal: sizeof_nal is 0\n");
+            mp4_printf("mp4_h26x_write_nal: sizeof_nal is 0\n");
             break;
         }
         if (h->is_hevc)
@@ -2353,7 +2365,7 @@ int mp4_h26x_write_nal(mp4_h26x_writer_t *h, const unsigned char *nal, int lengt
         payload_type = nal[0] & 31;
         if (9 == payload_type)
         {
-            printf("mp4_h26x_write_nal: access unit delimiter, nothing to be done\n");
+            mp4_printf("mp4_h26x_write_nal: access unit delimiter, nothing to be done\n");
             continue;  // access unit delimiter, nothing to be done
         }
 #if MINIMP4_TRANSCODE_SPS_ID
@@ -2370,14 +2382,14 @@ int mp4_h26x_write_nal(mp4_h26x_writer_t *h, const unsigned char *nal, int lengt
         nal2 = (unsigned char *)malloc(sizeof_nal*17/16 + 32);
         if (!nal2)
         {
-            printf("mp4_h26x_write_nal: nal2 is null, MP4E_STATUS_NO_MEMORY\n");
+            mp4_printf("mp4_h26x_write_nal: nal2 is null, MP4E_STATUS_NO_MEMORY\n");
             free(nal1);
             return MP4E_STATUS_NO_MEMORY;
         }
         sizeof_nal = remove_nal_escapes(nal2, nal, sizeof_nal);
         if (!sizeof_nal)
         {
-            printf("mp4_h26x_write_nal: sizeof_nal is 0, MP4E_STATUS_BAD_ARGUMENTS\n");
+            mp4_printf("mp4_h26x_write_nal: sizeof_nal is 0, MP4E_STATUS_BAD_ARGUMENTS\n");
 exit_with_free:
             free(nal1);
             free(nal2);
@@ -2389,15 +2401,15 @@ exit_with_free:
 
         switch (payload_type) {
         case 7:
-            printf("mp4_h26x_write_nal: set sps\n");
+            mp4_printf("mp4_h26x_write_nal: set sps\n");
             MP4E_set_sps(h->mux, h->mux_track_id, nal2 + 4, sizeof_nal - 4);
             h->need_sps = 0;
             break;
         case 8:
-            printf("mp4_h26x_write_nal: set pps\n");
+            mp4_printf("mp4_h26x_write_nal: set pps\n");
             if (h->need_sps)
             {
-                printf("mp4_h26x_write_nal: need sps0\n");
+                mp4_printf("mp4_h26x_write_nal: need sps0\n");
                 goto exit_with_free;
             }
             MP4E_set_pps(h->mux, h->mux_track_id, nal2 + 4, sizeof_nal - 4);
@@ -2406,7 +2418,7 @@ exit_with_free:
         case 5:
             if (h->need_sps)
             {
-                printf("mp4_h26x_write_nal: need sps1\n");
+                mp4_printf("mp4_h26x_write_nal: need sps1\n");
                 goto exit_with_free;
             }
             h->need_idr = 0;
@@ -2414,7 +2426,7 @@ exit_with_free:
         default:
             if (h->need_sps)
             {
-                printf("mp4_h26x_write_nal: need sps2\n");
+                mp4_printf("mp4_h26x_write_nal: need sps2\n");
                 goto exit_with_free;
             }
             if (!h->need_pps && !h->need_idr)
@@ -2443,19 +2455,19 @@ exit_with_free:
         // This branch assumes that encoder use correct SPS/PPS ID's
         switch (payload_type) {
             case 7:
-                printf("mp4_h26x_write_nal: set sps\n");
+                mp4_printf("mp4_h26x_write_nal: set sps\n");
                 MP4E_set_sps(h->mux, h->mux_track_id, nal, sizeof_nal);
                 h->need_sps = 0;
                 break;
             case 8:
-                printf("mp4_h26x_write_nal: set pps\n");
+                mp4_printf("mp4_h26x_write_nal: set pps\n");
                 MP4E_set_pps(h->mux, h->mux_track_id, nal, sizeof_nal);
                 h->need_pps = 0;
                 break;
             case 5:
                 if (h->need_sps)
                 {
-                    printf("mp4_h26x_write_nal: need sps3\n");
+                    mp4_printf("mp4_h26x_write_nal: need sps3\n");
                     return MP4E_STATUS_BAD_ARGUMENTS;
                 }
                 h->need_idr = 0;
@@ -2463,12 +2475,12 @@ exit_with_free:
             default:
                 if (h->need_sps)
                 {
-                    printf("mp4_h26x_write_nal: need sps4\n");
+                    mp4_printf("mp4_h26x_write_nal: need sps4\n");
                     return MP4E_STATUS_BAD_ARGUMENTS;
                 }
                 if (!h->need_pps && !h->need_idr)
                 {
-                    printf("mp4_h26x_write_nal: bit reader\n");
+                    mp4_printf("mp4_h26x_write_nal: bit reader\n");
                     bit_reader_t bs[1];
                     unsigned char *tmp = (unsigned char *)malloc(4 + sizeof_nal);
                     if (!tmp)
@@ -2489,14 +2501,14 @@ exit_with_free:
                     free(tmp);
                 }
                 else {
-                    printf("mp4_h26x_write_nal: need pps or idr0\n");
+                    mp4_printf("mp4_h26x_write_nal: need pps or idr0\n");
                 }
                 break;
         }
 #endif
         if (err)
         {
-            printf("mp4_h26x_write_nal: err %d\n", err);
+            mp4_printf("mp4_h26x_write_nal: err %d\n", err);
             break;
         }
     }
