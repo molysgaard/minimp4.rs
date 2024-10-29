@@ -65,7 +65,7 @@ pub fn write_mp4(mp4wr: &mut mp4_h26x_writer_t, fps: i32, data: &[u8]) -> Minimp
 
 pub fn write_mp4_frame_with_duration(
     mp4wr: &mut mp4_h26x_writer_t,
-    duration_90KHz: u32,
+    duration_90khz: u32,
     data: &[u8],
 ) -> Minimp4Result<()> {
     let mut data_size = data.len();
@@ -82,7 +82,7 @@ pub fn write_mp4_frame_with_duration(
 
         Minimp4Result::from(
             Minimp4ReturnCode::try_from(unsafe {
-                mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, duration_90KHz)
+                mp4_h26x_write_nal(mp4wr, data_ptr, nal_size as i32, duration_90khz)
             })
             .unwrap(),
         )?;
